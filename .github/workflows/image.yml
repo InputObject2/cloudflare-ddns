@@ -1,8 +1,9 @@
-name: Build cloudflare-ddns Docker image (multi-arch) straight to GitHub
+#
+name: Build cloudflare-ddns Docker image (multi-arch)
 
 on:
   push:
-    branches: master
+    branches: [master]
   pull_request:
 
 env:
@@ -10,16 +11,17 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  build-and-push-image:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       attestations: write
       id-token: write
+      #
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -27,21 +29,15 @@ jobs:
       - name: Setting up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v1 
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract branch name
-        shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch
-
-      - name: Docker meta
+      - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v3
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           sep-tags: ','
@@ -51,10 +47,9 @@ jobs:
             type=raw,enable=${{ steps.extract_branch.outputs.branch == 'master' }},value=latest
             type=schedule
             type=ref,event=pr
-
-      - name: Build and publish
-        id: build_and_publish
-        uses: docker/build-push-action@v2
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
@@ -64,11 +59,10 @@ jobs:
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.created=${{ steps.meta.outputs.created }}
             org.opencontainers.image.revision=${{ github.sha }}
-
       - name: Generate artifact attestation
-        #if: github.ref == 'refs/heads/master'
         uses: actions/attest-build-provenance@v2
+        if: github.event_name != 'pull_request'
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build_and_publish.outputs.ImageID }}
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+          subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: ${{ github.event_name != 'pull_request' }}
