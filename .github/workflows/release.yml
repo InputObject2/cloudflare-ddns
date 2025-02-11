@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master  # Only trigger when changes are merged into master
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Needed for creating tags/releases
+  pull-requests: write  # Needed for PRs that update versions
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for full commit history
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Run Release Please
+        uses: google-github-actions/release-please-action@v4
+        with:
+          release-type: simple
+          bump-minor-pre-major: true  # Minor bumps for pre-1.0.0
+          token: ${{ secrets.GITHUB_TOKEN }}
