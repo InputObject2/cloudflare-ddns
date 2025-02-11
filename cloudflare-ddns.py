@@ -19,6 +19,7 @@ import time
 import requests
 import logging
 import ipaddress
+from datetime import datetime
 
 CONFIG_PATH = os.environ.get('CONFIG_PATH', os.getcwd())
 # Read in all environment variables that have the correct prefix
@@ -176,12 +177,14 @@ def commitRecord(ip):
             fqdn = base_domain_name
             if name != '' and name != '@':
                 fqdn = name + "." + base_domain_name
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             record = {
                 "type": ip["type"],
                 "name": fqdn,
                 "content": ip["ip"],
                 "proxied": proxied,
-                "ttl": ttl
+                "ttl": ttl,
+                "comment": f"Updated by Cloudflare DDNS at {timestamp}."
             }
             dns_records = cf_api(
                 "zones/" + option['zone_id'] +
