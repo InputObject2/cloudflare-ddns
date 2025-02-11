@@ -30,6 +30,8 @@ logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(mes
 
 logger = logging.getLogger(__name__)
 
+current_hostname = os.environ.get('CF_DDNS_UPDATER_HOSTNAME', os.uname().nodename)
+
 class GracefulExit:
     def __init__(self):
         self.kill_now = threading.Event()
@@ -184,7 +186,7 @@ def commitRecord(ip):
                 "content": ip["ip"],
                 "proxied": proxied,
                 "ttl": ttl,
-                "comment": f"Updated by Cloudflare DDNS at {timestamp}."
+                "comment": f"Updated by Cloudflare DDNS running on {current_hostname} at {timestamp}."
             }
             dns_records = cf_api(
                 "zones/" + option['zone_id'] +
@@ -328,32 +330,28 @@ if __name__ == '__main__':
         except:
             ipv4_enabled = True
             ipv6_enabled = True
-            print("⚙️ Individually disable IPv4 or IPv6 with new config.json options. Read more about it here: https://github.com/timothymiller/cloudflare-ddns/blob/master/README.md")
+            logger.info("⚙️ Individually disable IPv4 or IPv6 with new config.json options. Read more about it here: https://github.com/timothymiller/cloudflare-ddns/blob/master/README.md")
         try:
             purgeUnknownRecords = config["purgeUnknownRecords"]
         except:
             purgeUnknownRecords = False
-            print("⚙️ No config detected for 'purgeUnknownRecords' - defaulting to False")
+            logger.info("⚙️ No config detected for 'purgeUnknownRecords' - defaulting to False")
         try:
             ttl = int(config["ttl"])
         except:
             ttl = 300  # default Cloudflare TTL
-            print(
-                "⚙️ No config detected for 'ttl' - defaulting to 300 seconds (5 minutes)")
+            logger.info("⚙️ No config detected for 'ttl' - defaulting to 300 seconds (5 minutes)")
         if ttl < 30:
             ttl = 1  #
-            print("⚙️ TTL is too low - defaulting to 1 (auto)")
+            logger.info("⚙️ TTL is too low - defaulting to 1 (auto)")
         if (len(sys.argv) > 1):
             if (sys.argv[1] == "--repeat"):
                 if ipv4_enabled and ipv6_enabled:
-                    print(
-                        "🕰️ Updating IPv4 (A) & IPv6 (AAAA) records every " + str(ttl) + " seconds")
+                    logger.info("🕰️ Updating IPv4 (A) & IPv6 (AAAA) records every " + str(ttl) + " seconds")
                 elif ipv4_enabled and not ipv6_enabled:
-                    print("🕰️ Updating IPv4 (A) records every " +
-                          str(ttl) + " seconds")
+                    logger.info("🕰️ Updating IPv4 (A) records every " + str(ttl) + " seconds")
                 elif ipv6_enabled and not ipv4_enabled:
-                    print("🕰️ Updating IPv6 (AAAA) records every " +
-                          str(ttl) + " seconds")
+                    logger.info("🕰️ Updating IPv6 (AAAA) records every " + str(ttl) + " seconds")
                 next_time = time.time()
                 killer = GracefulExit()
                 prev_ips = None
@@ -362,7 +360,6 @@ if __name__ == '__main__':
                     if killer.kill_now.wait(ttl):
                         break
             else:
-                print("❓ Unrecognized parameter '" +
-                      sys.argv[1] + "'. Stopping now.")
+                logger.error("❓ Unrecognized parameter '" + sys.argv[1] + "'. Stopping now.")
         else:
             updateIPs(getIPs())
