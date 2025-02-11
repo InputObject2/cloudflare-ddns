@@ -4,6 +4,8 @@ on:
   push:
     branches: [master]
   pull_request:
+  release:
+    types: [published]  # Trigger on new GitHub releases
 
 env:
   REGISTRY: ghcr.io
